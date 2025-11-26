@@ -17,27 +17,38 @@ dotenv.config();
 
 const app = express();
 const httpServer = createServer(app);
+
 const io = new Server(httpServer, {
   cors: {
-    origin: process.env.CORS_ORIGIN || 'http://localhost:3001',
+    origin: process.env.CORS_ORIGIN, // frontend URL
     methods: ['GET', 'POST'],
   },
 });
 
 // Middleware
 app.use(cors({
-  origin: [
-    process.env.CORS_ORIGIN
-  ],
-  credentials: true
+  origin: process.env.CORS_ORIGIN,
+  credentials: true,
 }));
+app.use(express.json());
 
-// Health check
+// ===================
+// ✅ ROOT / HEALTH ROUTES
+// ===================
+
+// Root route for Render
+app.get('/', (req, res) => {
+  res.send('✅ Backend is running');
+});
+
+// Health check route
 app.get('/health', (req, res) => {
   res.json({ status: 'ok', message: 'Server is running' });
 });
 
-// API Routes
+// ===================
+// ✅ API ROUTES
+// ===================
 app.use('/api/auth', authRoutes);
 app.use('/api/bus', busRoutes);
 app.use('/api/routes', routeRoutes);
@@ -46,25 +57,23 @@ app.use('/api/attendance', attendanceRoutes);
 app.use('/api/students', studentRoutes);
 app.use('/api/users', userRoutes);
 
-// Socket.IO connection handling
+// ===================
+// ✅ SOCKET.IO
+// ===================
 io.on('connection', (socket) => {
   console.log('Client connected:', socket.id);
 
-  // Join bus room for tracking
   socket.on('join-bus-room', (busId) => {
     socket.join(`bus-${busId}`);
     console.log(`Client ${socket.id} joined bus-${busId}`);
   });
 
-  // Leave bus room
   socket.on('leave-bus-room', (busId) => {
     socket.leave(`bus-${busId}`);
     console.log(`Client ${socket.id} left bus-${busId}`);
   });
 
-  // Handle location updates from drivers
   socket.on('location-update', (data) => {
-    // Broadcast to all clients tracking this bus
     io.to(`bus-${data.busId}`).emit('location-update', data);
   });
 
@@ -76,11 +85,12 @@ io.on('connection', (socket) => {
 // Make io available to routes if needed
 app.set('io', io);
 
+// ===================
+// ✅ START SERVER
+// ===================
 const PORT = process.env.PORT || 5000;
-
 httpServer.listen(PORT, () => {
   console.log(`🚀 Server running on port ${PORT}`);
+  console.log(`🌐 CORS enabled for: ${process.env.CORS_ORIGIN}`);
   console.log(`📡 Socket.IO server ready`);
-  console.log(`🌐 CORS enabled for: ${process.env.CORS_ORIGIN || 'http://localhost:3001'}`);
 });
-
